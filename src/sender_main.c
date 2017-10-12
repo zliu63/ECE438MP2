@@ -20,8 +20,41 @@
 #include <string.h>
 #include <sys/time.h>
 
+#define BUFFER_SIZE 1024
+#define SEQUENCE_LIMIT 4096
+#define MSS 100
+
 struct sockaddr_in si_other;
-int s, slen;
+socklen_t s;
+int slen;
+time_t timer;
+
+//define TCP segment
+typedef struct Segment{
+	int SYN;
+	int FIN;
+	int SEQ;
+	int ACK;
+	int CHK;
+	int RWND;
+    int LEN;
+	char data[MSS];
+} TCP_Seg;
+
+//init TCP Segment
+TCP_Seg segment_init(){
+	TCP_Seg seg;
+	seg.SYN = 0;
+	seg.FIN = 0;
+	seg.SEQ = 0;
+	seg.ACK = 0;
+	seg.CHK = 0;
+	seg.RWND = 0;
+    seg.LEN = 0;
+	for(int i = 0; i < MSS; ++i)
+		seg.data[i] = 0;
+	return seg;
+}
 
 void diep(char *s) {
     perror(s);
@@ -30,13 +63,19 @@ void diep(char *s) {
 
 
 void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* filename, unsigned long long int bytesToTransfer) {
+    int numbytes;
+    char buf[BUFFER_SIZE] = "this is a test from send!";
+	
+    TCP_Seg s_snd = segment_init();
+    TCP_Seg s_rec;
+		
     //Open the file
-    FILE *fp;
-    fp = fopen(filename, "rb");
-    if (fp == NULL) {
-        printf("Could not open file to send.");
-        exit(1);
-    }
+   // FILE *fp;
+   // fp = fopen(filename, "rb");
+   // if (fp == NULL) {
+   //     printf("Could not open file to send.");
+   //     exit(1);
+   // }
 
 	/* Determine how many bytes to transfer */
 
@@ -44,6 +83,8 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
 
     if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
         diep("socket");
+    
+    fcntl(s, F_SETFL, O_NONBLOCK);
 
     memset((char *) &si_other, 0, sizeof (si_other));
     si_other.sin_family = AF_INET;
@@ -52,10 +93,42 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
         fprintf(stderr, "inet_aton() failed\n");
         exit(1);
     }
-
-
+    
 	/* Send data and receive acknowledgements on s*/
+    printf("Send Connection Request\n");
+    timer = clock();
+    
+    s_snd.SYN = 1;
+    s_snd.SEQ = 10;
+    
+    while(s_rec.SYN == 0){
+        sendto(s, &s_snd, sizeof(TCP_Seg), 0, (struct sockaddr*) &si_other, slen);
+        recvfrom(s, &s_rec, sizeof(TCP_Seg), 0, (struct sockaddr*) &si_other, &slen);
+    }
+    
+    printf("Connected!\n");
+    
+    while(s_rec.FIN == 0){
+        s_snd.SEQ = s_rec.ACK;
+        s_snd.ACK = s_rec.SEQ + 1;
+        sendto(s, &s_snd, sizeof(TCP_Seg), 0, (struct sockaddr*) &si_other, slen);
+        recvfrom(s, &s_rec, sizeof(TCP_Seg), 0, (struct sockaddr*) &si_other, &slen);
+        printf("%d %d\n", s_rec.SEQ, s_rec.ACK);
+    }
 
+    
+    sendto(s, &s_snd, sizeof(TCP_Seg) , 0, (struct sockaddr*) &si_other, slen);
+    
+    while(s_rec.ACK <= strlen(buf)){
+        sendto(s, &s_snd, sizeof(TCP_Seg), 0, (struct sockaddr*) &si_other, slen);
+        //printf("SND_SEQ = %d\n", s_snd.SEQ);
+        recvfrom(s, &s_rec, sizeof(TCP_Seg), 0, (struct sockaddr*) &si_other, &slen);
+       // printf("REC_SEQ = %d\n", s_rec.SEQ);
+        printf("%c\n", s_rec.SYN);
+        s_snd.SEQ = s_rec.ACK;
+        s_snd.SYN = buf[s_snd.SEQ];
+        s_snd.ACK = s_rec.SEQ + 1;
+    }
     printf("Closing the socket\n");
     close(s);
     return;
