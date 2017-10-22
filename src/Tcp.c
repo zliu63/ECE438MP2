@@ -71,3 +71,27 @@ void make_Seg(TCP_Seg *seg, int seq, int ack, int len, char *data){
     
     seg->CHK = generateCheckSum( *seg );
 }
+
+int SeqAdd( int seq, int addend ){
+    seq += addend;
+    if( seq >= MAX_SEQ )
+        seq %= MAX_SEQ;
+    else if ( seq < 0 ){
+        while( seq < 0 )
+            seq += MAX_SEQ;
+    }
+    return seq;
+}
+
+int SeqCompare( int seq0, int seq1){
+    int sub = seq0 - seq1;
+    if( abs(sub) < WINDOW_SIZE )
+        return sub;
+    else{
+        if( sub > 0 )
+            sub -= MAX_SEQ;
+        else
+            sub += MAX_SEQ;
+        return sub;
+    }
+}
