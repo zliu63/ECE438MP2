@@ -105,12 +105,30 @@ void AddSegToBuffer(TCP_Seg seg){
     SegNum = GetNumber(list);
 }
 
-void GetDataFromFile(){
-    
+void GetDataFromFile(char* filename, unsigned long long *offset, unsigned long long* filesize, char* data, int* len){
+    FILE *fileptr;
+    fileptr = fopen(filename, "rb");  // Open the file in binary mode
+    if(fileptr == NULL)
+        printf("cannot open file \n");
+    fseek( fileptr, (long)*offset, SEEK_SET );
+    unsigned long long res = *filesize - *offset;
+    if(res >= MSS){
+        size_t out = fread( data, 1, MSS, fileptr);
+        *len = MSS;
+    }
+    else{
+        size_t out = fread( data, 1, res, fileptr);
+        *len = res;
+    }
+    fclose(fileptr);
+    *offset += *len;
+    return;
 }
 
-int IsFileEnd(){
-    return 0;
+int IsFileEnd(unsigned long long int offset, unsigned long long int filesize){
+    if (offset < filesize)
+        return 0;
+    return 1;
 }
 
 void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* filename, unsigned long long int bytesToTransfer) {
@@ -156,11 +174,11 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
     else{
         puts("Fail to Handshake!");
     }
-    
+    unsigned long long int read_offset = 0;
     while(1){
         //printf("base:%d nextseq:%d total:%d notsend:%d unacked:%d\n",base,nextSeq,SegNum,SegNotSend,SegUnAcked);
         //If there is no Segment waitting to be ACK and the file has ended
-        if( (SegNum == 0) && IsFileEnd() ){
+        if( (SegNum == 0) && IsFileEnd(read_offset,bytesToTransfer) ){
             make_FIN_Seg(&seg, SeqAdd(base, SegNum), 0);
             AddSegToBuffer(seg);
             SendSegment();
@@ -181,10 +199,10 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
         }
         
         if( SegNum < WINDOW_SIZE ){
-            if( !IsFileEnd() ){
+            if( !IsFileEnd(read_offset,bytesToTransfer) ){
                 char data[MSS];
                 int len;
-                GetDataFromFile();//should give data[] and len value
+                GetDataFromFile(filename,&read_offset,&bytesToTransfer,data,&len);//should give data[] and len value
                 make_Seg(&seg, SeqAdd(base, SegNum), 0, len, data);
                 AddSegToBuffer(seg);
             }

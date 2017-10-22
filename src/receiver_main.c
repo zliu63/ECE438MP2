@@ -33,8 +33,12 @@ void diep(char *s) {
 }
 
 //write the data from a segment to file
-void write_to_file(){
-    
+void write_to_file(TCP_Seg* pkt){
+    FILE * fileptr;
+    fileptr = fopen("receivedData","a");
+    fwrite(pkt->data, 1, pkt->LEN, fileptr);
+    fclose(fileptr);
+    return;
 }
 
 void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
@@ -82,7 +86,7 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
             if( ( seg_r.SEQ == expectedSeq ) && ( IsCorrupted(seg_r) == 0 ) ){
                 expectedSeq = SeqAdd(expectedSeq, 1);
                 if(seg_r.FIN != 1){
-                    write_to_file();//to be implement;
+                    write_to_file(&seg_r);//to be implement;
                 }
                 else{
                     make_FIN_Seg( &seg_s, 0, expectedSeq );
