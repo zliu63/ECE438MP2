@@ -8,6 +8,8 @@ LINKLIBS = -lpthread
 #by a space (e.g. SOMEOBJECTS = obj/foo.o obj/bar.o obj/baz.o).
 SERVEROBJECTS = obj/receiver_main.o
 CLIENTOBJECTS = obj/sender_main.o
+TCPOBJECTS = obj/TCP.o
+LISTOBJECTS = obj/List.o
 
 #Every rule listed here as .PHONY is "phony": when you say you want that rule satisfied,
 #Make knows not to bother checking whether the file exists, it just runs the recipes regardless.
@@ -25,7 +27,7 @@ all : obj reliable_sender reliable_receiver
 #$@: name of rule's target: server, client, talker, or listener, for the respective rules.
 #$^: the entire dependency string (after expansions); here, $(SERVEROBJECTS)
 #CC is a built in variable for the default C compiler; it usually defaults to "gcc". (CXX is g++).
-reliable_receiver: $(SERVEROBJECTS)
+reliable_receiver: $(SERVEROBJECTS) $(TCPOBJECTS) $(LISTOBJECTS)
 	$(CC) $(COMPILERFLAGS) $^ -o $@ $(LINKLIBS)
 
 
@@ -39,10 +41,8 @@ reliable_receiver: $(SERVEROBJECTS)
 #
 #In this case, CLIENTOBJECTS is just obj/client.o. So, if obj/client.o doesn't exist or is out of date, 
 #make will first look for a rule to build it. That rule is the 'obj/%.o' one, below; the % is a wildcard.
-reliable_sender: $(CLIENTOBJECTS)
+reliable_sender: $(CLIENTOBJECTS) $(TCPOBJECTS) $(LISTOBJECTS)
 	$(CC) $(COMPILERFLAGS) $^ -o $@ $(LINKLIBS)
-
-
 
 #RM is a built-in variable that defaults to "rm -f".
 clean :
