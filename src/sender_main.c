@@ -1,5 +1,5 @@
 /* 
- * File:   sender_main.c
+ * File: sender_main.c
  * Author: 
  *
  * Created on 
@@ -23,6 +23,7 @@
 #include "List.h"
 #include <sys/unistd.h>
 #include <sys/fcntl.h>
+
 //linked list to act as buffer
 Node *list;
 
@@ -66,19 +67,19 @@ void SendSegment(){
             TimerStartAt = clock();
             IsTimerOn = 1;
         }
-        SeqAdd(nextSeq,1);
+        nextSeq = SeqAdd(nextSeq,1);
     }
 }
 
 //Function dealing with received ACK
 void ReceiveACK(TCP_Seg seg){
     if( SeqCompare(seg.ACK,base) >= 0 ){
-        for(int i = 0; SeqCompare( SeqAdd(base,i), ACK ) < 0 ; i++){
+        for(int i = 0; SeqCompare( SeqAdd(base,i), seg.ACK ) < 0 ; i++){
             SetNodeStatus(list, SeqAdd(base,i), ACKED);
             RemoveNode( &list, SeqAdd(base,i) );
             SegUnAcked = GetStatusNumber(list, UNACKED);
             SegNum = GetNumber(list);
-            SeqAdd(base,1);
+            base = SeqAdd(base,1);
         }
         if(SegUnAcked != 0){
             TimerStartAt = clock();
@@ -99,7 +100,7 @@ void TimeOut(){
 
 //Add a segment to buffer
 void AddSegToBuffer(TCP_Seg seg){
-    AddNode(seg, NOTSEND);
+    AddNode(&list, seg, NOTSEND);
     SegNotSend = GetStatusNumber(list, NOTSEND);
     SegNum = GetNumber(list);
 }
@@ -154,10 +155,36 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
         fprintf(stderr, "inet_aton() failed\n");
         exit(1);
     }
-    //Hand Shake process
-    int InitSeq = rand() % MAX_SIZE;
+    
+    //Initial and Hankshake process
+    int InitSeq = rand() % MAX_SEQ;
     base = InitSeq;
     nextSeq = InitSeq;
+    SegNum = GetNumber(list);
+    SegNotSend = GetStatusNumber(list, NOTSEND);
+    SegUnAcked = GetStatusNumber(list, UNACKED);
+    //printf("base:%d nextseq:%d total:%d notsend:%d unacked:%d\n",base,nextSeq,SegNum,SegNotSend,SegUnAcked);
+    TCP_Seg seg;
+    make_SYN_Seg(&seg, InitSeq);
+    AddSegToBuffer(seg);
+    //printf("base:%d nextseq:%d total:%d notsend:%d unacked:%d\n",base,nextSeq,SegNum,SegNotSend,SegUnAcked);
+    SendSegment();
+    //printf("base:%d nextseq:%d total:%d notsend:%d unacked:%d\n",base,nextSeq,SegNum,SegNotSend,SegUnAcked);
+    while( (recvfrom(s, &seg, sizeof(TCP_Seg), 0, (struct sockaddr*) &si_other, &slen)) == -1 ) ;
+    if( (seg.ACK == base + 1) && (seg.FIN == 1) ){
+        SetNodeStatus(list, base, ACKED);
+        RemoveNode( &list, base );
+        SegUnAcked = GetStatusNumber(list, UNACKED);
+        SegNum = GetNumber(list);
+        base = SeqAdd(base,1);
+        //printf("base:%d nextseq:%d total:%d notsend:%d unacked:%d\n",base,nextSeq,SegNum,SegNotSend,SegUnAcked);
+        puts("Successfully connected!");
+    }
+    else{
+        puts("Fail to hankshake!");
+    }
+        
+
 
 //    while(1){
 //        while( SegNum < WINDOW_SIZE){

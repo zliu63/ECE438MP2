@@ -30,8 +30,6 @@ void diep(char *s) {
 }
 
 void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
-    int numbytes;
-    char buf[BUFFER_SIZE] = "This is a test from rec!";
 	
     TCP_Seg s_rec;
     TCP_Seg s_snd;
@@ -52,20 +50,15 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
     
     fcntl(s, F_SETFL, O_NONBLOCK);
     
-    puts("recv");
-    
     while(1){
         if( (recvfrom(s, &s_rec, sizeof(TCP_Seg), 0, (struct sockaddr*) &si_other, &slen)) != -1){
-            puts(s_rec.data);
-            
-            s_snd.ACK = 1;
+            s_snd.FIN = 1;
+            s_snd.ACK = s_rec.SEQ + 1;
             sendto(s, &s_snd, sizeof(TCP_Seg) , 0, (struct sockaddr*) &si_other, slen);
+            printf("seq:%d\n",s_rec.SEQ);
         };
     }
 
- 
-   
-  
     close(s);
     
 	//printf("%s received.", destinationFile);

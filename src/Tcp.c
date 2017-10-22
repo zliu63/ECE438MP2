@@ -85,7 +85,7 @@ int SeqAdd( int seq, int addend ){
 
 int SeqCompare( int seq0, int seq1){
     int sub = seq0 - seq1;
-    if( abs(sub) < WINDOW_SIZE )
+    if( abs(sub) < 2*WINDOW_SIZE )
         return sub;
     else{
         if( sub > 0 )
