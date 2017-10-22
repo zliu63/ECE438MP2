@@ -20,6 +20,9 @@
 #include <sys/unistd.h>
 #include <sys/fcntl.h>
 
+//the seq of next packet that is waitting for
+int expectedSeq;
+
 struct sockaddr_in si_me, si_other;
 socklen_t s;
 int slen;
@@ -29,13 +32,14 @@ void diep(char *s) {
     exit(1);
 }
 
+//write the data from a segment to file
+void write_to_file(){
+    
+}
+
 void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
 	
-    TCP_Seg s_rec;
-    TCP_Seg s_snd;
-	
     slen = sizeof (si_other);
-
 
     if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
         diep("socket");
@@ -50,13 +54,47 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
     
     fcntl(s, F_SETFL, O_NONBLOCK);
     
+    TCP_Seg seg_r;
+    TCP_Seg seg_s;
+    
+    //Hankshake process, wait until a packet is received.
     while(1){
-        if( (recvfrom(s, &s_rec, sizeof(TCP_Seg), 0, (struct sockaddr*) &si_other, &slen)) != -1){
-            s_snd.FIN = 1;
-            s_snd.ACK = s_rec.SEQ + 1;
-            sendto(s, &s_snd, sizeof(TCP_Seg) , 0, (struct sockaddr*) &si_other, slen);
-            printf("seq:%d\n",s_rec.SEQ);
+        if( (recvfrom(s, &seg_r, sizeof(TCP_Seg), 0, (struct sockaddr*) &si_other, &slen)) != -1){
+            //if it is a SYN packet and is not corrupted, send back a SYN packet with ACK = SEQ + 1
+            if( ( seg_r.SYN == 1 ) && ( IsCorrupted(seg_r) == 0 ) ){
+                expectedSeq = SeqAdd(seg_r.SEQ, 1);
+                make_SYN_Seg( &seg_s, 0, expectedSeq );
+                sendto(s, &seg_s, sizeof(TCP_Seg) , 0, (struct sockaddr*) &si_other, slen);
+                puts("Connected successfully!");
+                break;
+            }
+            else{
+                puts("Error setting up connection!");
+            }
         };
+    }
+    
+    while(1){
+        //if received a packet
+        if( (recvfrom(s, &seg_r, sizeof(TCP_Seg), 0, (struct sockaddr*) &si_other, &slen)) != -1){
+            //if is expected number and not corrupted, write the data to file and add exceptedSeq by 1
+            //else do nothing
+            if( ( seg_r.SEQ == expectedSeq ) && ( IsCorrupted(seg_r) == 0 ) ){
+                expectedSeq = SeqAdd(expectedSeq, 1);
+                if(seg_r.FIN != 1){
+                    write_to_file();//to be implement;
+                }
+                else{
+                    make_FIN_Seg( &seg_s, 0, expectedSeq );
+                    sendto(s, &seg_s, sizeof(TCP_Seg) , 0, (struct sockaddr*) &si_other, slen);
+                    puts("Finish!");
+                    break;
+                }
+            }
+            //send ACK segment back
+            make_Seg(&seg_s, 0, expectedSeq, 0, NULL);
+            sendto(s, &seg_s, sizeof(TCP_Seg) , 0, (struct sockaddr*) &si_other, slen);
+        }
     }
 
     close(s);

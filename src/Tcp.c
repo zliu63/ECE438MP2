@@ -19,12 +19,24 @@ void init_Seg(TCP_Seg * seg){
         seg->data[i] = 0;
 }
 
-void make_SYN_Seg(TCP_Seg * seg, int seq){
+void make_SYN_Seg(TCP_Seg * seg, int seq, int ack){
     
     init_Seg(seg);
     
     seg->SYN = 1;
     seg->SEQ = seq;
+    seg->ACK = ack;
+    seg->CHK = generateCheckSum( *seg );
+    
+}
+
+void make_FIN_Seg(TCP_Seg * seg, int seq, int ack){
+    
+    init_Seg(seg);
+    
+    seg->FIN = 1;
+    seg->SEQ = seq;
+    seg->ACK = ack;
     seg->CHK = generateCheckSum( *seg );
     
 }
