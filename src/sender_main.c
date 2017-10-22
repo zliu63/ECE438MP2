@@ -105,8 +105,16 @@ void AddSegToBuffer(TCP_Seg seg){
     SegNum = GetNumber(list);
 }
 
+void GetDataFromFile(){
+    
+}
+
+int IsFileEnd(){
+    
+}
 
 void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* filename, unsigned long long int bytesToTransfer) {
+    
 //    Node *head;
 //    TCP_Seg seg;
 //    seg.SEQ = 1;
@@ -135,11 +143,6 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
 //    printf("REMOVERETURN:%d\n",   RemoveNode( &head, 8));
 //    printf("total:%d UNACKED:%d UNSEND:%d ACKED:%d\n", GetNumber(head), GetStatusNumber(head,UNACKED), GetStatusNumber(head,NOTSEND), GetStatusNumber(head,ACKED) );
 
-    
-    
-    
-    //printf("%d\n",SeqCompare( 51, SeqAdd( 1020, 50) ));
-
 	/* Determine how many bytes to transfer */
 
     if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
@@ -156,61 +159,69 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
         exit(1);
     }
     
+    TCP_Seg seg;
+    
     //Initial and Hankshake process
+    srand ( time(NULL) );
     int InitSeq = rand() % MAX_SEQ;
     base = InitSeq;
     nextSeq = InitSeq;
     SegNum = GetNumber(list);
     SegNotSend = GetStatusNumber(list, NOTSEND);
     SegUnAcked = GetStatusNumber(list, UNACKED);
-    //printf("base:%d nextseq:%d total:%d notsend:%d unacked:%d\n",base,nextSeq,SegNum,SegNotSend,SegUnAcked);
-    TCP_Seg seg;
-    make_SYN_Seg(&seg, InitSeq);
+    make_SYN_Seg(&seg, InitSeq, 0);
     AddSegToBuffer(seg);
-    //printf("base:%d nextseq:%d total:%d notsend:%d unacked:%d\n",base,nextSeq,SegNum,SegNotSend,SegUnAcked);
     SendSegment();
-    //printf("base:%d nextseq:%d total:%d notsend:%d unacked:%d\n",base,nextSeq,SegNum,SegNotSend,SegUnAcked);
     while( (recvfrom(s, &seg, sizeof(TCP_Seg), 0, (struct sockaddr*) &si_other, &slen)) == -1 ) ;
-    if( (seg.ACK == base + 1) && (seg.FIN == 1) ){
+    if( (seg.ACK == base + 1) && (seg.SYN == 1) ){
         SetNodeStatus(list, base, ACKED);
         RemoveNode( &list, base );
         SegUnAcked = GetStatusNumber(list, UNACKED);
         SegNum = GetNumber(list);
         base = SeqAdd(base,1);
-        //printf("base:%d nextseq:%d total:%d notsend:%d unacked:%d\n",base,nextSeq,SegNum,SegNotSend,SegUnAcked);
         puts("Successfully connected!");
     }
     else{
         puts("Fail to hankshake!");
     }
+    //printf("base:%d nextseq:%d total:%d notsend:%d unacked:%d\n",base,nextSeq,SegNum,SegNotSend,SegUnAcked);
+    int i = 99;
+    while(1){
+       // printf("base:%d nextseq:%d total:%d notsend:%d unacked:%d\n",base,nextSeq,SegNum,SegNotSend,SegUnAcked);
+        while( SegNum < WINDOW_SIZE ){
+            if( !( IsFileEnd() ) ){
+                char data[MSS];
+                int len;
+                GetDataFromFile();//should give data[] and len value
+                make_Seg(&seg, SeqAdd(base, SegNum), 0, len, data);
+                AddSegToBuffer(seg);
+            }
+            if( i >= 0 ){
+                char data[100];
+                sprintf(data,"Send... SEQ:%d\n",SeqAdd(base, SegNum));
+                make_Seg(&seg, SeqAdd(base, SegNum), 0, strlen(data) + 1, data );
+                AddSegToBuffer(seg);
+                i--;
+            }
+        }
         
-
-
-//    while(1){
-//        while( SegNum < WINDOW_SIZE){
-//            if(file not end){
-//                
-//            }
-//        }
-//        
-//        if(1){
-//            if( SegNotSend != 0){
-//                SendSegment();
-//            }
-//        }
-//        
-//        if( (recvfrom(s, &s_rec, sizeof(TCP_Seg), 0, (struct sockaddr*) &si_other, &slen)) != -1 ){
-//            ReceiveACK
-//        }
-//        
-//        if( IsTimerOn == 1 ){
-//            if( (clock() - TimerStartAt) >= TimeOut){
-//                TimeOut();
-//            }
-//        }
-//        
-//        
-//    }
+        if(1){
+            if( SegNotSend != 0){
+                SendSegment();
+            }
+        }
+        
+        if( (recvfrom(s, &seg, sizeof(TCP_Seg), 0, (struct sockaddr*) &si_other, &slen)) != -1 ){
+            ReceiveACK(seg);
+            printf("ACK:%d\n",seg.ACK);
+        }
+        
+        if( IsTimerOn == 1 ){
+            if( (clock() - TimerStartAt) >= 1000000 ){
+                TimeOut();
+            }
+        }
+    }
     
     close(s);
     return;

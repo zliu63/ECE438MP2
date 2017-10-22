@@ -12,7 +12,7 @@
 #include <stdlib.h>
 
 #define MAX_SEQ 1024
-#define WINDOW_SIZE MAX_SEQ/10
+#define WINDOW_SIZE MAX_SEQ/50
 #define MSS 100
 
 
@@ -34,7 +34,7 @@ struct Segment{
 
 typedef struct Segment TCP_Seg;
 
-void make_SYN_Seg(TCP_Seg * seg, int seq);
+void make_SYN_Seg(TCP_Seg * seg, int seq, int ack);
 
 //generate CheckSum and return
 unsigned char generateCheckSum(TCP_Seg seg);
