@@ -30,6 +30,17 @@ void make_SYN_Seg(TCP_Seg * seg, int seq, int ack){
     
 }
 
+void make_FIN_Seg(TCP_Seg * seg, int seq, int ack){
+    
+    init_Seg(seg);
+    
+    seg->FIN = 1;
+    seg->SEQ = seq;
+    seg->ACK = ack;
+    seg->CHK = generateCheckSum( *seg );
+    
+}
+
 unsigned char generateCheckSum(TCP_Seg seg){
     seg.CHK = 0;
     size_t sz = sizeof(seg);

@@ -35,6 +35,7 @@ struct Segment{
 typedef struct Segment TCP_Seg;
 
 void make_SYN_Seg(TCP_Seg * seg, int seq, int ack);
+void make_FIN_Seg(TCP_Seg * seg, int seq, int ack);
 
 //generate CheckSum and return
 unsigned char generateCheckSum(TCP_Seg seg);

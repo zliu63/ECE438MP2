@@ -80,9 +80,16 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile) {
             //if is expected number and not corrupted, write the data to file and add exceptedSeq by 1
             //else do nothing
             if( ( seg_r.SEQ == expectedSeq ) && ( IsCorrupted(seg_r) == 0 ) ){
-                write_to_file();//to be implement
-                puts(seg_r.data);
                 expectedSeq = SeqAdd(expectedSeq, 1);
+                if(seg_r.FIN != 1){
+                    write_to_file();//to be implement;
+                }
+                else{
+                    make_FIN_Seg( &seg_s, 0, expectedSeq );
+                    sendto(s, &seg_s, sizeof(TCP_Seg) , 0, (struct sockaddr*) &si_other, slen);
+                    puts("Finish!");
+                    break;
+                }
             }
             //send ACK segment back
             make_Seg(&seg_s, 0, expectedSeq, 0, NULL);

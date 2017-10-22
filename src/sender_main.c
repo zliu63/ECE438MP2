@@ -110,38 +110,10 @@ void GetDataFromFile(){
 }
 
 int IsFileEnd(){
-    
+    return 0;
 }
 
 void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* filename, unsigned long long int bytesToTransfer) {
-    
-//    Node *head;
-//    TCP_Seg seg;
-//    seg.SEQ = 1;
-//    AddNode(&head, seg, UNACKED);
-//    seg.SEQ = 2;
-//    AddNode(&head, seg, NOTSEND);
-//    seg.SEQ = 3;
-//    AddNode(&head, seg, UNACKED);
-//    seg.SEQ = 4;
-//    AddNode(&head, seg, NOTSEND);
-//    seg.SEQ = 5;
-//    AddNode(&head, seg, NOTSEND);
-//    seg.SEQ = 6;
-//    AddNode(&head, seg, UNACKED);
-//    seg.SEQ = 7;
-//    AddNode(&head, seg, UNACKED);
-//    printf("%d\n", GetStatus(head,5));
-//    printf("total:%d UNACKED:%d UNSEND:%d ACKED:%d\n", GetNumber(head), GetStatusNumber(head,UNACKED), GetStatusNumber(head,NOTSEND), GetStatusNumber(head,ACKED) );
-//    printf("setreturn:%d\n", SetNodeStatus(head,5,ACKED));
-//    printf("setreturn:%d\n", SetNodeStatus(head,8,ACKED));
-//    printf("%d\n", GetStatus(head,5));
-//    printf("total:%d UNACKED:%d UNSEND:%d ACKED:%d\n", GetNumber(head), GetStatusNumber(head,UNACKED), GetStatusNumber(head,NOTSEND), GetStatusNumber(head,ACKED) );
-//    printf("REMOVERETURN:%d\n",   RemoveNode( &head, 5));
-//    printf("REMOVERETURN:%d\n",   RemoveNode( &head, 2));
-//    printf("REMOVERETURN:%d\n",   RemoveNode( &head, 6));
-//    printf("REMOVERETURN:%d\n",   RemoveNode( &head, 8));
-//    printf("total:%d UNACKED:%d UNSEND:%d ACKED:%d\n", GetNumber(head), GetStatusNumber(head,UNACKED), GetStatusNumber(head,NOTSEND), GetStatusNumber(head,ACKED) );
 
 	/* Determine how many bytes to transfer */
 
@@ -182,27 +154,50 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
         puts("Successfully connected!");
     }
     else{
-        puts("Fail to hankshake!");
+        puts("Fail to Handshake!");
     }
-    //printf("base:%d nextseq:%d total:%d notsend:%d unacked:%d\n",base,nextSeq,SegNum,SegNotSend,SegUnAcked);
-    int i = 99;
+    
     while(1){
-       // printf("base:%d nextseq:%d total:%d notsend:%d unacked:%d\n",base,nextSeq,SegNum,SegNotSend,SegUnAcked);
-        while( SegNum < WINDOW_SIZE ){
-            if( !( IsFileEnd() ) ){
+        //printf("base:%d nextseq:%d total:%d notsend:%d unacked:%d\n",base,nextSeq,SegNum,SegNotSend,SegUnAcked);
+        //If there is no Segment waitting to be ACK and the file has ended
+        if( (SegNum == 0) && IsFileEnd() ){
+            make_FIN_Seg(&seg, SeqAdd(base, SegNum), 0);
+            AddSegToBuffer(seg);
+            SendSegment();
+            while( (recvfrom(s, &seg, sizeof(TCP_Seg), 0, (struct sockaddr*) &si_other, &slen)) == -1 ) ;
+            if( (seg.ACK == base + 1) && (seg.FIN == 1) ){
+                SetNodeStatus(list, base, ACKED);
+                RemoveNode( &list, base );
+                SegUnAcked = GetStatusNumber(list, UNACKED);
+                SegNum = GetNumber(list);
+                base = SeqAdd(base,1);
+                puts("Finish Sending!");
+                break;
+            }
+            else{
+                puts("Error in Finishing!");
+                break;
+            }
+        }
+        
+        if( SegNum < WINDOW_SIZE ){
+            if( !IsFileEnd() ){
                 char data[MSS];
                 int len;
                 GetDataFromFile();//should give data[] and len value
                 make_Seg(&seg, SeqAdd(base, SegNum), 0, len, data);
                 AddSegToBuffer(seg);
             }
-            if( i >= 0 ){
-                char data[100];
-                sprintf(data,"Send... SEQ:%d\n",SeqAdd(base, SegNum));
-                make_Seg(&seg, SeqAdd(base, SegNum), 0, strlen(data) + 1, data );
-                AddSegToBuffer(seg);
-                i--;
-            }
+//            if( i >= 0 ){
+//                char data[100];
+//                sprintf(data,"Send... SEQ:%d\n",SeqAdd(base, SegNum));
+//                make_Seg(&seg, SeqAdd(base, SegNum), 0, strlen(data) + 1, data );
+//                AddSegToBuffer(seg);
+//                i--;
+//                //printf("Add packet with seq:%d\n",seg.SEQ);
+//            }
+//            else
+//                tempFlag=1;
         }
         
         if(1){
@@ -213,11 +208,10 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
         
         if( (recvfrom(s, &seg, sizeof(TCP_Seg), 0, (struct sockaddr*) &si_other, &slen)) != -1 ){
             ReceiveACK(seg);
-            printf("ACK:%d\n",seg.ACK);
         }
         
         if( IsTimerOn == 1 ){
-            if( (clock() - TimerStartAt) >= 1000000 ){
+            if( (clock() - TimerStartAt) >= CLOCKS_PER_SEC*5 ){
                 TimeOut();
             }
         }
